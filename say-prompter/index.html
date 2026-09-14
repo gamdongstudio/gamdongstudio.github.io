@@ -1,110 +1,88 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#2f6df6" />
-  <title>SAY PROMPTER</title>
-  <meta name="description" content="하고 싶은 일을 편하게 말하면 실제 작업에 사용할 수 있는 프롬프트로 정리해주는 SAY PROMPTER" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<meta content="#ffffff" name="theme-color"/>
+<title>SAY PROMPTER</title>
+<meta content="생각을 편하게 말하면 실제 작업에 사용할 수 있는 프롬프트로 정리해주는 SAY PROMPTER" name="description"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="styles.css" rel="stylesheet"/>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand" aria-label="SAY PROMPTER 홈">
-      <div class="brand-mark">S</div>
-      <div>
-        <strong>SAY</strong><span>PROMPTER</span>
-      </div>
-    </div>
-    <button class="text-button" id="newBtn" type="button">새로 만들기</button>
-  </header>
-
-  <main class="page-shell">
-    <section class="hero" aria-labelledby="heroTitle">
-      <p class="eyebrow">말은 편하게, 결과는 제대로</p>
-      <h1 id="heroTitle">하고 싶은 걸 편하게 말하세요.</h1>
-      <p class="hero-sub">SAY가 핵심 의도는 그대로 살리고, 실제 작업에 쓰기 좋은 프롬프트로 정리해드려요.</p>
-    </section>
-
-    <section class="composer card" aria-label="프롬프트 입력">
-      <div class="section-head compact">
-        <div>
-          <p class="label">이런 걸 만들 수 있어요</p>
-          <div class="chips" id="exampleChips">
-            <button class="chip" data-example="우리 사진관 홈페이지를 만들고 싶어요. 촬영 종류랑 가격, 사진 몇 장이랑 오시는 길을 보여주고, 모바일에서도 잘 보였으면 좋겠어요.">홈페이지 만들기</button>
-            <button class="chip" data-example="고객 예약을 정리하는 프로그램을 만들고 싶어요. 이름, 연락처, 예약 날짜와 시간을 입력하고 오늘 예약을 쉽게 볼 수 있었으면 좋겠어요.">업무 프로그램 만들기</button>
-            <button class="chip" data-example="인스타그램에 올릴 홍보 글을 써줘. 너무 광고 같지 않고 친근한 말투였으면 좋겠어. 핵심 혜택은 잘 보이게 해줘.">홍보 글 작성</button>
-            <button class="chip" data-example="가족사진 촬영을 홍보하는 이미지를 만들고 싶어. 따뜻하고 자연스러운 분위기, 세로형 인스타 비율, 글자는 최소로 해줘.">이미지 만들기</button>
-          </div>
-        </div>
-      </div>
-
-      <label class="sr-only" for="ideaInput">하고 싶은 일을 입력하세요</label>
-      <textarea id="ideaInput" rows="8" placeholder="예: 가족사진 상품 상세페이지를 만들고 싶어요. 상품명, 가격, 촬영 구성, 설명, 사진을 넣으면 자동으로 만들어지고 모바일에서도 잘 보였으면 좋겠어요."></textarea>
-
-      <div class="composer-actions">
-        <div class="draft-state" id="draftState" aria-live="polite">자동 저장</div>
-        <button class="primary-button" id="makeBtn" type="button">프롬프트 만들기</button>
-      </div>
-    </section>
-
-    <section class="result card hidden" id="resultSection" aria-labelledby="resultTitle">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow small">SAY RESULT</p>
-          <h2 id="resultTitle">SAY가 이렇게 정리했어요</h2>
-          <p class="section-sub">그대로 복사해도 되고, 문장을 직접 고쳐도 됩니다.</p>
-        </div>
-        <span class="type-badge" id="typeBadge">일반 작업</span>
-      </div>
-
-      <label class="sr-only" for="resultOutput">정리된 프롬프트</label>
-      <textarea id="resultOutput" class="result-output" rows="24"></textarea>
-
-      <div class="refine-panel hidden" id="refinePanel">
-        <label for="refineInput">어떻게 더 다듬을까요?</label>
-        <div class="refine-row">
-          <input id="refineInput" type="text" placeholder="예: 더 간단하게 / 모바일을 더 중요하게 / 초보자 중심으로" />
-          <button class="secondary-button" id="applyRefineBtn" type="button">반영하기</button>
-        </div>
-      </div>
-
-      <div class="result-actions">
-        <div class="left-actions">
-          <button class="secondary-button" id="refineBtn" type="button">다시 다듬기</button>
-          <button class="secondary-button" id="copyBtn" type="button">복사하기</button>
-        </div>
-        <button class="primary-button compact-btn" id="gptBtn" type="button">GPT에서 더 구체화하기</button>
-      </div>
-      <div class="action-note" id="actionNote" aria-live="polite"></div>
-    </section>
-
-    <section class="how-it-works" aria-label="사용 방법">
-      <div class="step"><span>1</span><div><strong>편하게 말하기</strong><p>문장 순서나 표현을 신경 쓰지 않아도 돼요.</p></div></div>
-      <div class="step"><span>2</span><div><strong>SAY가 정리</strong><p>목적·기능·조건·검수 기준까지 필요한 만큼 보완해요.</p></div></div>
-      <div class="step"><span>3</span><div><strong>GPT에서 한 단계 더</strong><p>복사해서 붙여넣으면 실제 작업용 최종 프롬프트로 발전시킬 수 있어요.</p></div></div>
-    </section>
-  </main>
-
-  <div class="modal hidden" id="gptModal" role="dialog" aria-modal="true" aria-labelledby="gptModalTitle">
-    <div class="modal-card">
-      <button class="modal-close" id="modalClose" aria-label="닫기">×</button>
-      <p class="eyebrow small">NEXT STEP</p>
-      <h2 id="gptModalTitle">GPT에서 더 구체화할 준비가 됐어요.</h2>
-      <p>아래 내용은 SAY 결과와 구체화 요청 문장을 한 번에 합친 버전입니다.</p>
-      <textarea id="gptCombined" rows="16" readonly></textarea>
-      <div class="modal-actions">
-        <button class="secondary-button" id="copyCombinedBtn" type="button">전체 복사</button>
-        <a class="primary-button link-button" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT 열기</a>
-      </div>
-      <p class="modal-tip">① 전체 복사 → ② ChatGPT 열기 → ③ 붙여넣기</p>
-    </div>
-  </div>
-
-  <template id="toastTemplate"><div class="toast"></div></template>
-  <script src="app.js"></script>
+<header class="topbar">
+<button aria-label="SAY PROMPTER 처음 화면으로" class="brand" id="brandHome">
+<span class="logo">S</span><span class="brand-text"><b>SAY</b><span>PROMPTER</span></span>
+</button>
+<div class="top-actions"><button class="ghost" id="continueDraft">이어하기</button><button class="ghost" id="newTop">새로 시작</button></div>
+</header>
+<main class="shell">
+<section class="hero" id="hero">
+<p class="kicker">말은 편하게, 프롬프트는 제대로</p>
+<h1>생각을 말하면,<br/>만드는 프롬프트가 됩니다.</h1>
+<p>처음부터 완벽하게 설명하지 않아도 괜찮아요. SAY가 먼저 이해한 내용을 보여주고, 필요한 것만 더해 실제 작업용 프롬프트로 정리해드려요.</p>
+</section>
+<section class="card start-card" id="screenHome">
+<div class="start-grid">
+<button class="start-choice" data-mode="create"><span class="arrow">→</span><span class="icon">＋</span><h2>새로 만들기</h2><p>홈페이지, 프로그램, 이미지, 글처럼 새로 만들고 싶은 것을 편하게 설명해보세요.</p></button>
+<button class="start-choice" data-mode="edit"><span class="arrow">→</span><span class="icon">✎</span><h2>수정하기</h2><p>이미 만든 화면이나 결과물을 보여주고 “여기만 이렇게 바꿔줘”라고 말하면 됩니다.</p></button>
+</div>
+<p class="start-foot">어려운 설정이나 전문 용어는 몰라도 됩니다.</p>
+</section>
+<section class="card panel hidden" id="screenMethod">
+<div class="panel-head"><div class="panel-title"><small>STEP 1</small><h2>어떻게 설명할까요?</h2><p>편한 방법 하나만 고르면 됩니다.</p></div><button class="back" data-back="home">← 뒤로</button></div>
+<div class="method-grid">
+<button class="method" data-method="free"><span class="num">1</span><h3>한 번에 말하기</h3><p>생각나는 대로 길게 적으면 SAY가 알아서 정리합니다. 가장 빠른 방법이에요.</p></button>
+<button class="method" data-method="guided"><span class="num">2</span><h3>질문에 답하기</h3><p>무엇을 만들지 막막할 때, 몇 가지 질문에만 답하면서 정리합니다.</p></button>
+<button class="method" data-method="image"><span class="num">3</span><h3>이미지로 설명하기</h3><p>스크린샷이나 참고 이미지를 고르고 바꾸고 싶은 부분을 말합니다.</p></button>
+</div>
+</section>
+<section class="card panel hidden" id="screenInput">
+<div class="progress"><span class="on"></span><span></span><span></span><span></span></div>
+<div class="panel-head"><div class="panel-title"><small>STEP 1</small><h2 id="inputTitle">하고 싶은 걸 편하게 말해주세요.</h2><p id="inputSub">문장 순서나 표현은 신경 쓰지 않아도 됩니다.</p></div><button class="back" data-back="method">← 뒤로</button></div>
+<div id="freeFields">
+<div class="field"><label for="freeText">하고 싶은 일</label><textarea class="big-input" id="freeText" placeholder="예: 가족사진 상품 상세페이지를 만들고 싶어. 상품명, 가격, 촬영 구성, 사진을 넣으면 자동으로 만들어졌으면 좋겠고 모바일에서도 잘 보였으면 좋겠어. 작업하던 내용도 저장됐으면 좋겠어."></textarea></div>
+</div>
+<div class="hidden" id="guidedFields">
+<div class="field"><label for="gGoal">무엇을 만들고 싶나요?</label><input class="input" id="gGoal" placeholder="예: 사진관 홈페이지 제작 도구"/></div>
+<div class="row"><div class="field"><label for="gUser">누가 사용하나요?</label><input class="input" id="gUser" placeholder="예: 웹을 잘 모르는 사진관 사장님"/></div><div class="field"><label for="gResult">결과는 어떻게 받고 싶나요?</label><input class="input" id="gResult" placeholder="예: 링크로 바로 열 수 있게"/></div></div>
+<div class="field"><label for="gMust">꼭 들어가야 할 내용이나 기능은?</label><textarea id="gMust" placeholder="예: 사진 업로드, 가격 입력, 모바일 미리보기, 자동저장" rows="5"></textarea></div>
+<div class="field"><label for="gExtra">특히 중요하거나 싫은 방식이 있나요? <span class="help">선택</span></label><textarea id="gExtra" placeholder="예: 초보자도 설명서 없이 쓸 수 있게. 복잡한 설정은 싫어." rows="4"></textarea></div>
+</div>
+<div class="hidden" id="imageFields">
+<div class="upload"><label for="imageFile"><div class="upload-icon">🖼️</div><b>스크린샷 또는 참고 이미지 선택</b><span>이미지는 이 브라우저 안에서만 확인합니다. GPT에 붙여넣을 때는 같은 이미지를 함께 첨부해주세요.</span></label><input accept="image/*" id="imageFile" type="file"/><div class="hidden" id="filePreview"></div></div>
+<div class="field"><label for="imageText">이미지를 보면서 무엇을 만들거나 바꾸고 싶나요?</label><textarea class="big-input" id="imageText" placeholder="예: 이 화면처럼 왼쪽에는 미리보기, 오른쪽에는 설정을 두고 싶어. 색상과 기존 기능은 그대로 두고 배치와 크기만 비슷하게 맞춰줘."></textarea></div>
+</div>
+<div class="actions"><button class="btn secondary" data-back="method">취소</button><button class="btn primary" id="understandBtn">SAY가 이해한 내용 보기 →</button></div>
+</section>
+<section class="card panel hidden" id="screenUnderstand">
+<div class="progress"><span class="on"></span><span class="on"></span><span></span><span></span></div>
+<div class="panel-head"><div class="panel-title"><small>STEP 2</small><h2>제가 이렇게 이해했어요.</h2><p>맞는지만 확인해주세요. SAY가 원래 의도를 바꾸지 않도록 이 단계를 먼저 거칩니다.</p></div><button class="back" data-back="input">← 뒤로</button></div>
+<div class="understand-box"><h3>현재 이해한 방향</h3><div class="understand-text" id="understandText"></div><details class="verbatim"><summary>내가 처음 말한 내용도 보기</summary><p id="originalText"></p></details></div>
+<div class="field hidden" id="understandEditWrap"><label for="understandEdit">내용을 직접 고쳐도 됩니다.</label><textarea class="edit-understand" id="understandEdit"></textarea></div>
+<div class="actions"><button class="btn secondary" id="skipSuggestion">바로 프롬프트 만들기</button><button class="btn secondary" id="editUnderstanding">내용 수정</button><button class="btn primary" id="confirmUnderstanding">맞아요, 다음 →</button></div>
+</section>
+<section class="card panel hidden" id="screenSuggest">
+<div class="progress"><span class="on"></span><span class="on"></span><span class="on"></span><span></span></div>
+<div class="panel-head"><div class="panel-title"><small>STEP 3</small><h2>이건 같이 넣으면 더 좋아요.</h2><p>필요한 것만 선택해두었어요. 원하지 않는 항목은 체크를 끄면 됩니다.</p></div><button class="back" data-back="understand">← 뒤로</button></div>
+<div class="suggestion-intro">💡 사용자가 말하지 않은 기능을 마음대로 늘리는 게 아니라, 실제 작업에서 빠지기 쉬운 조건만 제안합니다.</div>
+<div class="suggestions" id="suggestions"></div>
+<div class="actions"><button class="btn secondary" id="withoutSuggestions">제안 없이 만들기</button><button class="btn primary" id="withSuggestions">선택한 제안 포함해서 만들기 →</button></div>
+</section>
+<section class="card panel hidden" id="screenFinal">
+<div class="progress"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span></div>
+<div class="panel-head"><div class="panel-title"><small>완성</small><h2>실제 작업에 사용할 프롬프트예요.</h2><p>그대로 써도 되고, 아래에서 직접 고치거나 이어서 수정할 수 있어요.</p></div><button class="back" data-back="suggest">← 이전</button></div>
+<div class="final-top"><div aria-label="프롬프트 자세함 선택" class="segmented"><button data-level="short">짧게</button><button class="on" data-level="basic">기본</button><button data-level="precise">정밀하게</button></div><span style="color:#98a2b3;font-size:12px">자동 저장됨</span></div>
+<label class="sr-only" for="finalOutput">완성 프롬프트</label><textarea class="final-output" id="finalOutput"></textarea>
+<div class="continue-box"><label for="continueInput">이어 수정하기 <span class="help">예: 모바일을 더 중요하게 / 기존 기능은 절대 건드리지 않게</span></label><div class="continue-row"><input id="continueInput" placeholder="추가하고 싶은 내용을 편하게 적어주세요"/><button class="btn secondary" id="applyContinue">반영하기</button></div></div>
+<div class="final-actions"><div class="group"><button class="btn secondary" id="copyFinal">복사하기</button><button class="btn secondary" id="restartFinal">새로 만들기</button></div><button class="btn primary" id="gptFinal">GPT에서 더 구체화하기</button></div>
+<div class="note"><strong>추천 사용법</strong> · SAY에서 핵심 요구사항을 먼저 잡고, 마지막에 GPT에서 한 번 더 구체화하면 기능 누락과 애매한 지시를 줄이기 좋습니다.</div>
+<div class="save-state" id="savedAt"></div>
+</section>
+</main>
+<div aria-labelledby="gptTitle" aria-modal="true" class="modal hidden" id="gptModal" role="dialog"><div class="modal-card"><button aria-label="닫기" class="close" id="closeModal">×</button><h2 id="gptTitle">GPT에서 한 단계 더 구체화하기</h2><p>현재 SAY 프롬프트 뒤에 구체화 요청까지 붙였습니다. 전체 복사한 뒤 ChatGPT에 붙여넣으면 됩니다.</p><textarea id="gptText" readonly></textarea><div class="modal-actions"><button class="btn secondary" id="copyGpt">전체 복사</button><a class="btn primary" href="https://chatgpt.com/" rel="noopener" target="_blank">ChatGPT 열기</a></div></div></div>
+<script src="app.js"></script>
 </body>
 </html>
