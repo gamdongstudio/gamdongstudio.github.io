@@ -1,67 +1,152 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#2f6df6">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>SAY PROMPTER</title>
-<meta name="description" content="하고 싶은 일을 편하게 말하면 실제 작업에 사용할 수 있는 프롬프트로 정리해주는 SAY PROMPTER">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="stack.css">
+<link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<header class="topbar"><div class="brand">SAY <span>PROMPTER</span></div><button id="newBtn" type="button">새 프롬프트</button></header>
-<main class="shell">
-<section class="hero"><div class="eyebrow">말은 편하게, 결과는 제대로</div><h1>하고 싶은 걸 편하게 말하세요.</h1><p>먼저 크게 말하고, 아래 질문에 필요한 만큼 답하면 SAY가 실제 작업에 쓸 수 있는 프롬프트로 발전시켜드려요.</p></section>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-mark">SAY</span><span class="brand-name">PROMPTER</span></div>
+    <p class="brand-sub">생각을 정리해 GPT·Claude에 붙여넣을 좋은 프롬프트의 뼈대를 만듭니다.</p>
+  </div>
+</header>
 
-<section class="card" id="composer">
-<h2>먼저, 하고 싶은 일을 편하게 적어주세요.</h2>
-<p class="sub">이 첫 번째 입력이 가장 중요합니다. 생각나는 대로 길게 적어도 괜찮아요.</p>
-<div class="examples">
-<button class="chip" data-example="우리 사진관 홈페이지를 만들고 싶어요. 촬영 종류와 가격, 사진 여러 장, 오시는 길을 보여주고 모바일에서도 잘 보였으면 좋겠어요.">홈페이지 만들기</button>
-<button class="chip" data-example="고객 예약을 정리하는 프로그램을 만들고 싶어요. 이름, 연락처, 예약 날짜와 시간을 입력하고 오늘 예약을 쉽게 볼 수 있었으면 좋겠어요.">업무 프로그램 만들기</button>
-<button class="chip" data-example="가족사진 상품 상세페이지를 만드는 도구를 만들고 싶어요. 상품명, 가격, 촬영 구성, 설명과 사진을 넣으면 자동으로 만들어지고 모바일에서도 자연스럽게 보였으면 좋겠어요.">상세페이지 만들기</button>
-<button class="chip" data-example="인스타그램에 올릴 홍보 글을 만들고 싶어요. 너무 광고 같지 않고 친근하면서 핵심 혜택은 잘 보였으면 좋겠어요.">홍보 글 만들기</button>
-</div>
-<textarea id="ideaInput" rows="9" placeholder="예: 네이버 블로그를 자동화하는 웹페이지를 만들고 싶어. 사용자가 관심분야를 입력하면 뉴스와 인기 글을 모아서 글감을 찾고, 자연스러운 블로그 글로 다시 써주고, 어울리는 이미지도 찾아줬으면 좋겠어..."></textarea>
-<div class="composer-foot"><span class="draft" id="draftState">자동 저장</span><button class="btn primary" id="makeBtn" type="button">프롬프트 만들기 →</button></div>
-</section>
+<main class="wrap">
+  <div class="mode-row" id="modeRow" aria-label="작업 방식 선택">
+    <button type="button" class="mode-btn is-on" data-mode="create">
+      <b>새로 만들기</b><small>처음부터 새 결과물을 만들 때</small>
+    </button>
+    <button type="button" class="mode-btn" data-mode="fix">
+      <b>완성본 수정하기</b><small>이미 만든 홈페이지·도구·문서 등을 고칠 때</small>
+    </button>
+  </div>
 
-<section class="card hidden" id="questionSection">
-<div class="section-label">STEP 2 · 프롬프트 구성 방법</div>
-<h2>조금만 더 알려주세요.</h2>
-<p class="sub">질문은 아래에 모두 펼쳐두었어요. 이미 위에서 말한 내용은 다시 적지 않아도 되고, 필요한 것만 답하면 됩니다. 구체적인 질문은 예 / 아니요로 빠르게 답할 수 있어요.</p>
-<div class="question-grid" id="questionGrid"></div>
-<div class="actions"><span class="draft">빈 질문은 넘어가도 됩니다.</span><button class="btn primary" id="summarizeBtn" type="button">답변 반영해서 정리하기 →</button></div>
-</section>
+  <section class="card" id="cardInput">
+    <div id="createFields">
+      <div class="intro-copy">
+        <h1>먼저 두 가지만 편하게 말해주세요.</h1>
+        <p>긴 개발 설명은 필요 없습니다. SAY가 중요한 조건을 정리해 플랜으로 보여드립니다.</p>
+      </div>
+      <div class="field field-main">
+        <label class="field-label" for="qWhat"><span class="qnum">1</span> 무엇을 만들고 싶으신가요?</label>
+        <textarea id="qWhat" class="request-input" rows="3" placeholder="예) 가족사진 상세페이지 만드는 사이트"></textarea>
+        <p class="field-example">예: 홈페이지 · 업무 프로그램 · 상세페이지 제작기 · 홍보 글 · 이미지 제작 도구</p>
+      </div>
+      <div class="field field-main">
+        <label class="field-label" for="qHow"><span class="qnum">2</span> 어떻게 작동했으면 좋겠나요?</label>
+        <textarea id="qHow" class="request-input" rows="4" placeholder="예) 사진하고 가격을 넣으면 자동으로 만들어지고 바로 미리보면서 수정하고 싶어."></textarea>
+        <p class="field-example">예: 내용을 입력하면 바로 미리보기 · 사진을 올리면 자동 배치 · 완성하면 공개 링크로 확인</p>
+      </div>
+      <div class="field field-optional">
+        <label class="field-label" for="qMust"><span class="qnum qnum-soft">3</span> 꼭 넣고 싶은 내용이 있나요? <span class="opt">선택</span></label>
+        <textarea id="qMust" class="request-input" rows="2" placeholder="예) 모바일에서도 잘 보이고 이미지로 저장하고 싶어."></textarea>
+      </div>
+    </div>
 
-<section class="card hidden" id="principleSection">
-<div class="section-label">STEP 3 · 프롬프트 원칙</div>
-<h2>이 원칙을 함께 넣을게요.</h2>
-<p class="sub">예시처럼 실제 작업이 더 정확하게 진행되도록 기본 원칙을 붙입니다. 원하지 않는 항목은 체크를 끌 수 있어요.</p>
-<div class="principles" id="principleGrid"></div>
-</section>
+    <div id="fixFields" hidden>
+      <div class="intro-copy">
+        <h1>완성된 결과에서 바꾸고 싶은 부분만 말해주세요.</h1>
+        <p>전체를 새로 만들지 않고, 요청한 부분만 안전하게 고칠 수 있는 수정 프롬프트를 만듭니다.</p>
+      </div>
+      <div class="field field-main">
+        <label class="field-label" for="fixTarget"><span class="qnum">1</span> 어떤 완성본을 수정하려고 하나요?</label>
+        <textarea id="fixTarget" class="request-input" rows="2" placeholder="예) 현재 운영 중인 사진관 홈페이지"></textarea>
+      </div>
+      <div class="field field-main">
+        <label class="field-label" for="fixChange"><span class="qnum">2</span> 어디를 어떻게 바꾸고 싶나요?</label>
+        <textarea id="fixChange" class="request-input" rows="4" placeholder="예) 모바일에서 상품사진이 너무 커 보여서 한 줄에 두 개씩 보이게 하고 싶어."></textarea>
+      </div>
+      <div class="field field-optional">
+        <label class="field-label" for="fixKeep"><span class="qnum qnum-soft">3</span> 꼭 그대로 유지해야 하는 것이 있나요? <span class="opt">선택</span></label>
+        <textarea id="fixKeep" class="request-input" rows="2" placeholder="예) PC 화면과 기존 사진 업로드 기능은 그대로 유지"></textarea>
+      </div>
+    </div>
 
-<section class="card hidden" id="understandSection">
-<div class="section-label">STEP 4 · SAY UNDERSTAND</div>
-<h2>제가 이해한 내용은 이렇습니다.</h2>
-<p class="sub">최종 프롬프트를 만들기 전에, 처음 말한 내용과 질문 답변을 하나로 합쳐 방향을 확인합니다.</p>
-<div class="summary" id="understandBox"></div>
-<div class="actions"><button class="btn" id="editQuestionsBtn" type="button">질문 수정</button><button class="btn primary" id="confirmBtn" type="button">맞아요, 최종 프롬프트 만들기 →</button></div>
-</section>
+    <div class="refine-row" id="refineRow">
+      <button type="button" class="btn btn-line" id="btnTidy">요청 다듬기</button>
+      <button type="button" class="btn btn-line" id="btnExpand">더 구체적으로</button>
+      <button type="button" class="btn btn-undo" id="btnUndo" hidden>되돌리기</button>
+    </div>
 
-<section class="card hidden" id="resultSection">
-<div class="section-label">FINAL · GPT에 복사할 프롬프트</div>
-<h2>SAY가 최종 프롬프트를 만들었어요.</h2>
-<p class="sub">여기까지가 SAY의 역할입니다. 이 내용을 복사해서 GPT에 붙여넣으면 최종 작업용 프롬프트로 한 단계 더 발전시킬 수 있어요.</p>
-<textarea id="resultOutput" class="prompt-box" rows="26"></textarea>
-<div class="refine"><label for="refineInput">이어 수정하기</label><div class="refine-row"><input id="refineInput" type="text" placeholder="예: 모바일을 더 중요하게 / 사진 부분만 더 자세히 / 기존 기능 보호를 더 강조"><button class="btn" id="applyRefineBtn" type="button">반영하기</button></div></div>
-<div class="result-actions"><div class="group"><button class="btn" id="copyBtn" type="button">복사하기</button><button class="btn" id="restartBtn" type="button">다시 보기</button></div><button class="btn primary" id="gptBtn" type="button">GPT에서 최종 프롬프트 만들기</button></div>
-<div class="gpt-box"><h3>추천 사용법</h3><p>① SAY에서 생각을 정리 → ② 복사 → ③ ChatGPT에 붙여넣기 → ④ GPT가 실제 작업에 바로 쓸 수 있는 최종 프롬프트로 구체화</p></div>
-</section>
+    <section class="detail-panel" id="detailPanel" hidden>
+      <div class="panel-head">
+        <div><h2>필요한 조건을 골라주세요</h2><p>이미 말한 내용은 다시 묻지 않습니다. 필요한 것만 눌러주세요.</p></div>
+      </div>
+      <div class="quick-grid" id="quickGrid">
+        <button type="button" class="quick-card" data-quick="mobile"><span>📱</span><b>모바일에서도 사용</b></button>
+        <button type="button" class="quick-card" data-quick="persist"><span>💾</span><b>작업 저장하고 이어하기</b></button>
+        <button type="button" class="quick-card" data-quick="preview"><span>👀</span><b>입력 내용 바로 미리보기</b></button>
+        <button type="button" class="quick-card" data-quick="multiPhoto"><span>🖼️</span><b>사진·파일 여러 개 사용</b></button>
+        <button type="button" class="quick-card" data-quick="order"><span>↕️</span><b>사진·항목 순서 변경</b></button>
+        <button type="button" class="quick-card" data-quick="publicLink"><span>🔗</span><b>완성된 결과 공개 링크 받기</b></button>
+      </div>
+      <div class="more-questions" id="moreQuestions" hidden>
+        <h3>더 정하면 좋은 내용 <span>선택</span></h3>
+        <div class="q-list" id="qList"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnSkipQuestions">질문은 건너뛰기</button>
+      </div>
+    </section>
+
+    <div class="attach-box">
+      <div class="attach-title-row">
+        <div><h2>참고자료 <span class="opt">선택</span></h2><p>사진은 디자인·스타일·배치 참고, 링크는 구조·사용 흐름 참고용입니다.</p></div>
+      </div>
+      <div class="attach-row">
+        <button type="button" class="btn btn-soft" id="btnPickImage">🖼 사진 추가</button>
+        <button type="button" class="btn btn-soft" id="btnToggleLink">🔗 링크 추가</button>
+        <span class="attach-count" id="attachCount"></span>
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" multiple hidden />
+      </div>
+      <div class="thumb-grid" id="thumbGrid"></div>
+      <div class="link-box" id="linkBox" hidden>
+        <div class="link-input-row"><input type="url" id="linkInput" class="text-input" placeholder="https://" /><button type="button" class="btn btn-line" id="btnAddLink">링크 추가</button></div>
+        <p class="link-hint">네이버 등 일부 사이트는 접근 제한으로 내용을 확인하기 어려울 수 있습니다. 이런 경우 필요한 화면을 캡처해 사진으로 추가하면 더 정확하게 참고할 수 있습니다.</p>
+        <div class="link-list" id="linkList"></div>
+      </div>
+      <p class="reference-note">참고 이미지와 링크는 동일하게 복제하기 위한 자료가 아니라, 원하는 디자인·구조·사용 흐름을 이해해 프롬프트를 더 구체적으로 만들기 위한 참고자료입니다.</p>
+    </div>
+
+    <div class="submit-row"><button type="button" class="btn btn-primary btn-lg" id="btnPlan">SAY 플랜 만들기</button><button type="button" class="btn btn-ghost" id="btnClear">지우기</button></div>
+  </section>
+
+  <section class="card card-plan" id="cardPlan" hidden>
+    <div class="plan-head"><div><span class="eyebrow">SAY PLAN</span><h2>SAY가 정리한 플랜</h2><p>사용자의 말을 크게 바꾸지 않고, 제작에 필요한 수준으로만 정리했습니다. 이 자리에서 직접 고칠 수 있습니다.</p></div><span class="editable-badge">직접 수정 가능</span></div>
+
+    <div id="createPlanBox"><textarea id="planText" class="plan-text" rows="12" spellcheck="false"></textarea></div>
+    <div id="fixPlanBox" hidden>
+      <div class="fix-plan-grid">
+        <div class="fix-plan-item"><label for="planChange">바꿀 것</label><textarea id="planChange" rows="4"></textarea></div>
+        <div class="fix-plan-item"><label for="planKeep">그대로 둘 것</label><textarea id="planKeep" rows="4"></textarea></div>
+        <div class="fix-plan-item"><label for="planCheck">작업 후 확인할 것</label><textarea id="planCheck" rows="4"></textarea></div>
+      </div>
+    </div>
+
+    <div class="plan-actions"><button type="button" class="btn btn-undo" id="btnPlanUndo" hidden>이전 플랜으로 되돌리기</button><button type="button" class="btn btn-primary" id="btnPrompt">프롬프트 만들기</button></div>
+  </section>
+
+  <section class="card" id="cardResult" hidden>
+    <div class="result-head"><div><span class="eyebrow">SAY RESULT</span><h2 class="card-title">완성된 프롬프트</h2><p class="card-help">GPT나 Claude에 바로 붙여넣을 수 있는 기본 프롬프트입니다. 결과창도 직접 수정할 수 있습니다.</p></div>
+      <div class="len-row" id="lenRow"><button type="button" class="len-btn" data-len="short">짧게</button><button type="button" class="len-btn is-on" data-len="normal">기본</button><button type="button" class="len-btn" data-len="precise">정밀하게</button></div>
+    </div>
+    <textarea class="result-textarea" id="resultText" rows="16" spellcheck="false"></textarea>
+    <div class="result-actions"><button type="button" class="btn btn-primary" id="btnCopy">복사</button><button type="button" class="btn btn-line" id="btnCopyRefine">더 정교하게 복사</button><button type="button" class="btn btn-line" id="btnSaveTxt">TXT 저장</button><button type="button" class="btn btn-ghost" id="btnRemake">다시 만들기</button></div>
+    <p class="result-hint">더 구체적인 프롬프트가 필요하다면 '더 정교하게 복사' 후 ChatGPT나 Claude에 붙여넣어 한 번 더 보완할 수 있습니다.</p>
+  </section>
 </main>
-<script src="stack.js"></script>
+<div class="toast" id="toast" hidden></div>
+
+<script src="bundle1.js"></script>
+<script src="intent.js"></script>
+<script src="questions.js"></script>
+<script src="refine.js"></script>
+<script src="imageAttach.js"></script>
+<script src="linkAttach.js"></script>
+<script src="plan.js"></script>
+<script src="prompt.js"></script>
+<script src="result.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
