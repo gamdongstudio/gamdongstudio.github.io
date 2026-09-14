@@ -1,65 +1,294 @@
-const KEY='say-prompter-restore-v1';
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const screens={home:$('#screenHome'),method:$('#screenMethod'),input:$('#screenInput'),understand:$('#screenUnderstand'),suggest:$('#screenSuggest'),final:$('#screenFinal')};
-let state={mode:'',method:'free',raw:'',understanding:'',selected:[],level:'basic',fileName:'',extra:'',final:''};
-const GPT_SUFFIX=`위 내용을 바탕으로 실제 작업에 바로 사용할 수 있도록
-프롬프트를 한 단계 더 구체적으로 다듬어줘.
+/* SAY PROMPTER - app.js
+ * 5차 기반 플랜 중심 흐름.
+ * 새로 만들기: 3개 입력 → (선택) 다듬기/더 구체적으로/참고자료 → SAY 플랜 → 프롬프트
+ * 완성본 수정하기: 수정 대상/변경/유지 → 수정 플랜 → 수정 프롬프트
+ */
+(function (global) {
+  'use strict';
 
-내 핵심 의도는 바꾸지 말고,
-빠진 조건이나 애매한 부분이 있다면 필요한 범위에서 보완해줘.
+  var SP = global.SP;
+  var store = SP.store;
+  var el = {};
+  var saveTimer = null;
 
-먼저 내가 원하는 방향을 어떻게 이해했는지 짧게 정리해줘.
+  var app = {
+    mode: 'create',
+    length: store.length || 'normal',
+    quick: { mobile:false, persist:false, preview:false, multiPhoto:false, order:false, publicLink:false },
+    images: [],
+    links: [],
+    questions: [],
+    answers: [],
+    undoFields: null,
+    planUndo: null,
+    plan: null,
+    lastRequest: ''
+  };
 
-꼭 필요한 질문이 있다면 최대 3개까지만 해주고,
-사소한 부분은 가장 안정적이고 사용하기 좋은 방식으로 판단해줘.
+  function $(id) { return document.getElementById(id); }
+  function clean(s) { return String(s || '').trim(); }
+  function scrollTo(node) { if (node && node.scrollIntoView) node.scrollIntoView({behavior:'smooth',block:'start'}); }
 
-내가 생각한 방법보다 더 좋은 방법이 있다면 함께 제안해줘.
+  var toastTimer = null;
+  function toast(msg) {
+    el.toast.textContent = msg;
+    el.toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.toast.hidden = true; }, 2400);
+  }
 
-방향에 큰 문제가 없다면 실제 작업에 사용할 수 있는
-최종 프롬프트까지 완성해줘.`;
-function save(){localStorage.setItem(KEY,JSON.stringify(state));$('#savedAt').textContent='최근 작업 저장됨 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});}
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s)state={...state,...s};}catch(e){}}
-function show(name){Object.entries(screens).forEach(([k,v])=>v.classList.toggle('hidden',k!==name));$('#hero').classList.toggle('hidden',name!=='home');window.scrollTo({top:0,behavior:'smooth'});}
-function start(mode){state.mode=mode;state.method='free';state.raw='';state.understanding='';state.selected=[];state.extra='';state.final='';state.fileName='';save();if(mode==='edit'){state.method='image';renderInput();show('input')}else show('method');}
-function currentRaw(){if(state.method==='guided'){const parts=[['만들고 싶은 것',$('#gGoal').value],['사용자',$('#gUser').value],['원하는 결과',$('#gResult').value],['꼭 필요한 기능/내용',$('#gMust').value],['중요한 조건',$('#gExtra').value]].filter(x=>x[1].trim());return parts.map(x=>x[0]+': '+x[1].trim()).join('\n');}if(state.method==='image')return $('#imageText').value.trim();return $('#freeText').value.trim();}
-function renderInput(){const edit=state.mode==='edit';$('#inputTitle').textContent=edit?'어디를 어떻게 바꾸고 싶은지 말해주세요.':'하고 싶은 걸 편하게 말해주세요.';$('#inputSub').textContent=edit?'스크린샷이 있으면 함께 고르고, 바꾸고 싶은 부분과 그대로 둘 부분을 말하면 됩니다.':'문장 순서나 표현은 신경 쓰지 않아도 됩니다.';$('#freeFields').classList.toggle('hidden',state.method!=='free');$('#guidedFields').classList.toggle('hidden',state.method!=='guided');$('#imageFields').classList.toggle('hidden',state.method!=='image');if(edit)$('#imageText').placeholder='예: 첫 번째 화면의 구조가 더 좋아. 사진과 버튼은 그대로 두고 배치와 크기만 저 화면처럼 되돌려줘. 다른 정상 기능은 건드리지 마.';show('input');}
-function classify(t){const x=t.toLowerCase();if(/홈페이지|웹사이트|사이트|페이지|웹 도구|상세페이지/.test(x))return'웹사이트/웹도구';if(/프로그램|앱|관리|예약|crm|도구/.test(x))return'프로그램/업무도구';if(/이미지|사진|로고|포스터|배너|그림/.test(x))return'이미지';if(/글|문서|메일|후기|홍보|공지|시나리오/.test(x))return'글/문서';return'작업';}
-function signals(t){const out=[];const rules=[['PC와 모바일 모두 자연스럽게 보여야 함',/모바일|반응형|pc|컴퓨터/],['작업 내용을 저장하고 나중에 이어서 사용할 수 있어야 함',/저장|이어|다시 접속|자동저장/],['입력하거나 수정한 내용이 화면에 바로 반영되어야 함',/미리보기|바로 반영|실시간/],['사진이나 이미지를 여러 장 다루고 순서·배치를 쉽게 바꿀 수 있어야 함',/사진|이미지|순서|배치|드래그/],['초보자도 설명서 없이 사용할 만큼 단순하고 직관적이어야 함',/초보|쉽게|직관|설명서|간단/],['완성 결과를 링크로 열거나 공유할 수 있어야 함',/링크|공유|주소/],['작업이 끝나면 실제 동작과 화면을 확인해야 함',/확인|테스트|검수|오류/],['이번 요청과 관계없는 기존 기능과 디자인은 유지해야 함',/그대로|유지|건드리지|기존|이것만|부분만/]];rules.forEach(r=>r[1].test(t)&&out.push(r[0]));return [...new Set(out)];}
-function makeUnderstanding(raw){const kind=classify(raw);const sig=signals(raw);const edit=state.mode==='edit';let lines=[];if(edit){lines.push('현재 결과물 전체를 새로 만드는 것이 아니라, 필요한 부분만 수정하려는 작업으로 이해했어요.');}else{lines.push(kind+'를 새로 만들려는 작업으로 이해했어요.');}const first=raw.split(/\n|(?<=[.!?])\s+/).map(s=>s.trim()).filter(Boolean)[0]||raw;lines.push('핵심 요청: '+first.replace(/[.!?]$/,''));if(sig.length)lines.push('특히 중요해 보이는 조건:\n- '+sig.join('\n- '));if(state.fileName)lines.push('참고 이미지: '+state.fileName+' (GPT에서 작업할 때 같은 이미지를 함께 첨부)');lines.push(edit?'수정 범위 밖의 정상 기능은 가능한 한 그대로 유지하는 방향이 적합해 보여요.':'사용자가 말하지 않은 큰 기능을 임의로 늘리기보다, 필요한 조건만 보완하는 방향이 적합해 보여요.');return lines.join('\n\n');}
-function suggestionPool(raw){const x=raw.toLowerCase(), arr=[];const add=(id,title,desc)=>arr.push({id,title,desc});if(/홈페이지|웹사이트|사이트|페이지|프로그램|도구|앱/.test(x)){add('mobile','모바일 대응','PC와 모바일에서 모두 레이아웃이 깨지지 않도록 반응형 기준을 포함합니다.');add('preview','즉시 반영·미리보기','입력이나 설정 변경이 결과에 바로 반영되는지 확인하도록 합니다.');add('save','자동저장·이어하기','작업 도중 닫아도 최근 내용을 이어서 사용할 수 있게 합니다.');add('test','완료 후 실제 테스트','버튼, 입력, 모바일, 새로고침 등 주요 흐름을 직접 확인하게 합니다.');}
-if(/사진|이미지/.test(x)){add('imagefit','사진 크기·잘림 확인','사진이 찌그러지거나 의도치 않게 잘리지 않는지 검수하도록 합니다.');}
-if(state.mode==='edit'||/유지|건드리지|그대로|부분만/.test(x)){add('preserve','기존 정상 기능 유지','요청한 부분 외의 기능·텍스트·디자인은 변경하지 않도록 범위를 명확히 합니다.');add('scope','수정 범위 최소화','전체를 다시 만들지 말고 필요한 부분만 수정하도록 합니다.');}
-if(state.method==='image'){add('reference','첨부 이미지 기준 명확화','이미지는 새 디자인 아이디어가 아니라 위치·크기·간격·정렬 등 무엇을 참고할지 구분해 적도록 합니다.');}
-add('simple','초보자 중심','전문 용어와 불필요한 설정을 줄이고 화면만 보고도 사용할 수 있게 합니다.');
-return [...new Map(arr.map(x=>[x.id,x])).values()];}
-function renderSuggestions(){const pool=suggestionPool(state.raw);if(!state.selected.length)state.selected=pool.map(x=>x.id);$('#suggestions').innerHTML=pool.map(x=>`<label class="suggestion"><input type="checkbox" value="${x.id}" ${state.selected.includes(x.id)?'checked':''}><span><b>${x.title}</b><p>${x.desc}</p></span></label>`).join('');}
-function selectedSuggestionLines(){const pool=suggestionPool(state.raw);const ids=new Set(state.selected);return pool.filter(x=>ids.has(x.id)).map(x=>'- '+x.title+': '+x.desc);}
-function makeFinal(level=state.level){const edit=state.mode==='edit';const raw=state.raw.trim();const selected=selectedSuggestionLines();const understanding=state.understanding.trim();const imageLine=state.fileName?`\n- 참고 이미지 파일: ${state.fileName}\n- 실제 작업을 요청할 때 이 이미지도 함께 첨부해서 참고하게 해줘.`:'';const extra=state.extra?`\n\n# 추가로 반영할 내용\n${state.extra}`:'';
-if(level==='short')return `${edit?'현재 결과물을 아래 요청대로 수정해줘.':'아래 요구사항을 바탕으로 결과물을 만들어줘.'}\n\n${raw}${imageLine}\n\n중요:\n${edit?'- 요청한 부분만 수정하고, 관련 없는 기존 정상 기능과 디자인은 유지해줘.\n':''}${selected.join('\n')}\n- 애매한 세부사항은 가장 안정적이고 사용하기 쉬운 방식으로 판단해줘.\n- 완료 후 실제로 정상 동작하는지 확인하고 문제가 있으면 수정해줘.${extra}`;
-let detail=`# 작업 목적\n${edit?'현재 결과물의 핵심 구조와 정상 기능을 유지하면서, 사용자가 요청한 부분만 정확하게 수정하는 것':'사용자가 설명한 핵심 의도를 바꾸지 않고 실제로 사용할 수 있는 결과물을 만드는 것'}\n\n# 사용자가 말한 원문\n${raw}${imageLine}\n\n# SAY가 이해한 방향\n${understanding}\n\n# 함께 반영할 조건\n${selected.length?selected.join('\n'):'- 사용자가 명시한 요구사항만 우선 반영'}\n\n# 작업 원칙\n- 사용자의 핵심 의도를 임의로 바꾸지 마.\n- 사용자가 요청하지 않은 큰 기능을 마음대로 추가하지 마.\n- 사소한 간격, 버튼 크기, 반응형 기준 등은 가장 안정적이고 사용하기 쉬운 방식으로 판단해줘.\n- 전문 용어보다 실제 사용자가 이해하기 쉬운 표현과 흐름을 우선해줘.\n${edit?'- 이번 요청과 관련 없는 기존 기능, 텍스트, 데이터, 디자인은 가능한 한 변경하지 마.\n- 전체를 새로 만들기보다 요청 범위를 최소한으로 수정해줘.\n':''}\n# 완료 후 확인\n- 사용자가 요청한 핵심 내용이 빠짐없이 반영됐는지 확인해줘.\n- 주요 버튼·입력·링크 등 실제 동작이 정상인지 확인해줘.\n- PC와 모바일에서 화면이 깨지거나 불필요한 가로 스크롤이 생기지 않는지 확인해줘.\n${/사진|이미지/.test(raw)?'- 사진이나 이미지가 의도한 크기와 비율로 보이고, 이상하게 잘리거나 찌그러지지 않는지 확인해줘.\n':''}- 문제가 발견되면 가능한 범위에서 직접 수정하고 다시 확인해줘.`;
-if(level==='precise')detail+=`\n\n# 진행 방식\n1. 먼저 내가 원하는 방향을 짧게 정리해줘.\n2. 꼭 필요한 질문이 있다면 최대 3개까지만 해줘.\n3. 질문하지 않아도 되는 사소한 부분은 안정적인 기본값으로 판단해서 계속 진행해줘.\n4. 내가 생각한 방식보다 더 안정적이고 쉬운 방법이 있다면 핵심 의도를 해치지 않는 범위에서 제안해줘.\n5. 방향에 큰 문제가 없으면 실제 작업까지 진행해줘.\n6. 작업 후 변경 내용과 확인 결과를 짧게 알려줘.`;
-return detail+extra;}
-function buildFinal(){state.final=makeFinal(state.level);$('#finalOutput').value=state.final;save();show('final');}
-function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),1800)}
-async function copyText(t){try{await navigator.clipboard.writeText(t);toast('복사했어요 ✓')}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast('복사했어요 ✓')}}
-$$('[data-mode]').forEach(b=>b.addEventListener('click',()=>start(b.dataset.mode)));
-$$('[data-method]').forEach(b=>b.addEventListener('click',()=>{state.method=b.dataset.method;renderInput()}));
-$$('[data-back]').forEach(b=>b.addEventListener('click',()=>{const x=b.dataset.back;if(x==='home')show('home');if(x==='method')state.mode==='edit'?show('home'):show('method');if(x==='input')renderInput();if(x==='understand')show('understand');if(x==='suggest')show('suggest')}));
-$('#imageFile').addEventListener('change',e=>{const f=e.target.files[0];state.fileName=f?f.name:'';const p=$('#filePreview');if(f){p.className='preview-file';p.innerHTML=`<span>📎 ${f.name}</span><span>${Math.round(f.size/1024)} KB</span>`}else p.className='hidden';save()});
-$('#understandBtn').addEventListener('click',()=>{const raw=currentRaw();if(!raw){toast('하고 싶은 내용을 먼저 적어주세요.');return}state.raw=raw;state.understanding=makeUnderstanding(raw);$('#understandText').textContent=state.understanding;$('#understandEdit').value=state.understanding;$('#originalText').textContent=raw;$('#understandEditWrap').classList.add('hidden');save();show('understand')});
-$('#editUnderstanding').addEventListener('click',()=>{$('#understandEditWrap').classList.toggle('hidden');$('#understandEdit').focus()});
-$('#confirmUnderstanding').addEventListener('click',()=>{if(!$('#understandEditWrap').classList.contains('hidden'))state.understanding=$('#understandEdit').value.trim()||state.understanding;renderSuggestions();save();show('suggest')});
-$('#skipSuggestion').addEventListener('click',()=>{if(!$('#understandEditWrap').classList.contains('hidden'))state.understanding=$('#understandEdit').value.trim()||state.understanding;state.selected=[];buildFinal()});
-$('#withSuggestions').addEventListener('click',()=>{state.selected=$$('#suggestions input:checked').map(x=>x.value);buildFinal()});
-$('#withoutSuggestions').addEventListener('click',()=>{state.selected=[];buildFinal()});
-$$('[data-level]').forEach(b=>b.addEventListener('click',()=>{state.level=b.dataset.level;$$('[data-level]').forEach(x=>x.classList.toggle('on',x===b));state.final=makeFinal(state.level);$('#finalOutput').value=state.final;save()}));
-$('#finalOutput').addEventListener('input',()=>{state.final=$('#finalOutput').value;save()});
-$('#applyContinue').addEventListener('click',()=>{const v=$('#continueInput').value.trim();if(!v)return;state.extra=state.extra?state.extra+'\n- '+v:'- '+v;state.final=makeFinal(state.level);$('#finalOutput').value=state.final;$('#continueInput').value='';save();toast('추가 내용을 반영했어요.')});
-$('#copyFinal').addEventListener('click',()=>copyText($('#finalOutput').value));
-$('#gptFinal').addEventListener('click',()=>{$('#gptText').value=$('#finalOutput').value.trim()+'\n\n---\n\n'+GPT_SUFFIX;$('#gptModal').classList.remove('hidden')});
-$('#closeModal').addEventListener('click',()=>$('#gptModal').classList.add('hidden'));$('#gptModal').addEventListener('click',e=>{if(e.target.id==='gptModal')$('#gptModal').classList.add('hidden')});$('#copyGpt').addEventListener('click',()=>copyText($('#gptText').value));
-function reset(){if(state.raw&&!confirm('현재 작업을 비우고 새로 시작할까요?'))return;state={mode:'',method:'free',raw:'',understanding:'',selected:[],level:'basic',fileName:'',extra:'',final:''};localStorage.removeItem(KEY);['#freeText','#gGoal','#gUser','#gResult','#gMust','#gExtra','#imageText','#continueInput'].forEach(s=>{const el=$(s);if(el)el.value=''});show('home')}
-$('#newTop').addEventListener('click',reset);$('#restartFinal').addEventListener('click',reset);$('#brandHome').addEventListener('click',()=>show('home'));
-$('#continueDraft').addEventListener('click',()=>{load();if(state.final){$('#finalOutput').value=state.final;$$('[data-level]').forEach(x=>x.classList.toggle('on',x.dataset.level===state.level));show('final')}else if(state.raw){$('#understandText').textContent=state.understanding||makeUnderstanding(state.raw);$('#understandEdit').value=state.understanding;$('#originalText').textContent=state.raw;show('understand')}else{toast('이어갈 작업이 아직 없어요.')}});
-load();
-if(state.final){$('#continueDraft').textContent='최근 작업 이어하기'}
+  function createFields() { return { what:clean(el.qWhat.value), how:clean(el.qHow.value), must:clean(el.qMust.value) }; }
+  function fixFields() { return { target:clean(el.fixTarget.value), change:clean(el.fixChange.value), keep:clean(el.fixKeep.value) }; }
+  function combinedText() {
+    var f = app.mode === 'create' ? createFields() : fixFields();
+    return Object.keys(f).map(function(k){return f[k];}).filter(Boolean).join('\n');
+  }
+
+  function draftSnapshot() {
+    return {
+      mode: app.mode,
+      length: app.length,
+      create: createFields(),
+      fix: fixFields(),
+      quick: app.quick,
+      images: app.images,
+      links: app.links,
+      answers: app.answers,
+      planCreate: el.planText ? el.planText.value : '',
+      planFix: el.planChange ? {change:el.planChange.value,keep:el.planKeep.value,check:el.planCheck.value} : null,
+      result: el.resultText ? el.resultText.value : '',
+      detailOpen: el.detailPanel ? !el.detailPanel.hidden : false,
+      planOpen: el.cardPlan ? !el.cardPlan.hidden : false,
+      resultOpen: el.cardResult ? !el.cardResult.hidden : false
+    };
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){ store.saveDraft(draftSnapshot()); }, 220);
+  }
+
+  function renderMode() {
+    Array.prototype.forEach.call(el.modeRow.querySelectorAll('.mode-btn'), function(b){
+      b.classList.toggle('is-on', b.getAttribute('data-mode') === app.mode);
+    });
+    var isCreate = app.mode === 'create';
+    el.createFields.hidden = !isCreate;
+    el.fixFields.hidden = isCreate;
+    el.btnExpand.hidden = !isCreate;
+    el.detailPanel.hidden = !isCreate || !app.detailOpen;
+    el.createPlanBox.hidden = !isCreate;
+    el.fixPlanBox.hidden = isCreate;
+    el.btnPlan.textContent = isCreate ? 'SAY 플랜 만들기' : '수정 플랜 만들기';
+    scheduleSave();
+  }
+
+  function renderQuick() {
+    Array.prototype.forEach.call(el.quickGrid.querySelectorAll('.quick-card'), function(b){
+      b.classList.toggle('is-on', !!app.quick[b.getAttribute('data-quick')]);
+    });
+  }
+
+  function inferQuick() {
+    var t = combinedText();
+    var tests = {
+      mobile: /(모바일|휴대폰|핸드폰|반응형)/,
+      persist: /(자동\s*저장|저장.*이어|이어서|이어하기|나중에.*계속)/,
+      preview: /(미리\s*보|실시간|바로.*반영|바로.*확인)/,
+      multiPhoto: /(여러\s*장|여러장|사진.*여러|파일.*여러)/,
+      order: /(순서|배치.*바꾸|드래그|정렬)/,
+      publicLink: /(공개\s*링크|공유\s*링크|링크로.*받|링크.*공개)/
+    };
+    Object.keys(tests).forEach(function(k){ if (tests[k].test(t)) app.quick[k] = true; });
+    renderQuick();
+  }
+
+  function renderImages() {
+    SP.imageAttach.render(el.thumbGrid, el.attachCount, app.images, {
+      onRole:function(id,role){ app.images.forEach(function(im){if(im.id===id) im.role=role;}); scheduleSave(); },
+      onDescription:function(id,text){ app.images.forEach(function(im){if(im.id===id) im.description=text;}); scheduleSave(); },
+      onDelete:function(id){ app.images=app.images.filter(function(im){return im.id!==id;}); renderImages(); scheduleSave(); }
+    });
+    renderAttachCount();
+  }
+
+  function renderAttachCount() {
+    var parts=[]; if(app.images.length)parts.push('사진 '+app.images.length+'장'); if(app.links.length)parts.push('링크 '+app.links.length+'개');
+    el.attachCount.textContent=parts.join(' · ');
+  }
+
+  function renderLinks() {
+    SP.linkAttach.render(el.linkList, app.links, {
+      onNote:function(id,text){ app.links.forEach(function(l){if(l.id===id)l.note=text;}); scheduleSave(); },
+      onDelete:function(id){ app.links=app.links.filter(function(l){return l.id!==id;}); renderLinks(); scheduleSave(); }
+    });
+    renderAttachCount();
+  }
+
+  function addLink() {
+    var url=SP.linkAttach.normalizeUrl(el.linkInput.value);
+    if(!url){toast('주소를 확인해주세요. 예) https://example.com');return;}
+    if(app.links.some(function(l){return l.url===url;})){toast('이미 추가된 링크입니다.');return;}
+    var link=SP.linkAttach.create(url); app.links.push(link); el.linkInput.value=''; renderLinks(); scheduleSave();
+    SP.linkAttach.fetchContent(link).then(function(){ renderLinks(); scheduleSave(); if(link.status==='failed') toast('이 사이트는 내용을 직접 읽기 어려워 주소와 설명만 참고합니다.'); });
+  }
+
+  function getEditableFields() { return app.mode==='create' ? [el.qWhat,el.qHow,el.qMust] : [el.fixTarget,el.fixChange,el.fixKeep]; }
+
+  function tidy() {
+    var nodes=getEditableFields();
+    if(!nodes.some(function(n){return clean(n.value);})){toast('먼저 내용을 적어주세요.');nodes[0].focus();return;}
+    app.undoFields=nodes.map(function(n){return n.value;});
+    var changed=false;
+    nodes.forEach(function(n){ if(clean(n.value)){var next=SP.refine.tidy(n.value); if(next!==n.value){n.value=next;changed=true;}} });
+    if(!changed){app.undoFields=null;toast('이미 충분히 정리된 요청입니다.');return;}
+    el.btnUndo.hidden=false; scheduleSave(); toast('뜻은 그대로 두고 문장만 정리했습니다.');
+  }
+
+  function restoreUndo() {
+    if(!app.undoFields)return;
+    getEditableFields().forEach(function(n,i){n.value=app.undoFields[i]||'';});
+    app.undoFields=null; el.btnUndo.hidden=true; scheduleSave(); toast('원래 내용으로 되돌렸습니다.');
+  }
+
+  function askMore() {
+    if(!clean(el.qWhat.value)){toast('먼저 무엇을 만들고 싶은지 적어주세요.');el.qWhat.focus();return;}
+    inferQuick();
+    app.detailOpen=true; el.detailPanel.hidden=false;
+
+    var intent=SP.intent.detect(combinedText(),'create');
+    var qs=SP.questions.build({text:combinedText(),intent:intent}).filter(function(q){
+      if(['device','persist','photo-multi','order','result-form'].indexOf(q.id)!==-1) return false;
+      if(q.id==='tech' || q.id==='login') return false;
+      return true;
+    }).slice(0,4);
+    app.questions=qs;
+    renderQuestions();
+    el.moreQuestions.hidden=!qs.length;
+    scrollTo(el.detailPanel); scheduleSave();
+  }
+
+  function renderQuestions() {
+    el.qList.innerHTML='';
+    app.questions.forEach(function(q){
+      var box=document.createElement('div');box.className='q-item';
+      var tx=document.createElement('div');tx.className='q-text';tx.textContent=q.q;box.appendChild(tx);
+      var input=document.createElement('input');input.type='text';input.className='q-input';input.setAttribute('data-qid',q.id);
+      var saved=app.answers.filter(function(a){return a.id===q.id;})[0]; input.value=saved?saved.answer:'';
+      input.placeholder=q.kind==='yesno'?'예 / 아니요 또는 직접 적어주세요':'선택사항 · 비워둬도 됩니다';
+      if(q.kind==='yesno'){
+        var chips=document.createElement('div');chips.className='q-chips';
+        ['예','아니요'].forEach(function(v){var c=document.createElement('button');c.type='button';c.className='q-chip';c.textContent=v;if(saved&&saved.answer===v)c.classList.add('is-on');c.addEventListener('click',function(){input.value=v;Array.prototype.forEach.call(chips.querySelectorAll('.q-chip'),function(o){o.classList.toggle('is-on',o===c);});collectAnswers();scheduleSave();});chips.appendChild(c);});
+        box.appendChild(chips);
+      }
+      input.addEventListener('input',function(){collectAnswers();scheduleSave();});box.appendChild(input);el.qList.appendChild(box);
+    });
+  }
+
+  function collectAnswers() {
+    var out=[];Array.prototype.forEach.call(el.qList.querySelectorAll('.q-input'),function(i){var v=clean(i.value);if(v)out.push({id:i.getAttribute('data-qid'),answer:v});});app.answers=out;return out;
+  }
+
+  function validateInput() {
+    if(app.mode==='create'){
+      if(!clean(el.qWhat.value)){toast('먼저 무엇을 만들고 싶은지 적어주세요.');el.qWhat.focus();return false;}
+      if(!clean(el.qHow.value)){toast('어떻게 작동했으면 좋은지도 짧게 적어주세요.');el.qHow.focus();return false;}
+    }else{
+      if(!clean(el.fixTarget.value)){toast('어떤 완성본을 수정할지 적어주세요.');el.fixTarget.focus();return false;}
+      if(!clean(el.fixChange.value)){toast('어디를 어떻게 바꾸고 싶은지 적어주세요.');el.fixChange.focus();return false;}
+    }
+    return true;
+  }
+
+  function currentPlanSnapshot() {
+    if(app.mode==='create') return {mode:'create',text:el.planText.value};
+    return {mode:'fix',change:el.planChange.value,keep:el.planKeep.value,check:el.planCheck.value};
+  }
+
+  function buildPlan() {
+    if(!validateInput())return;
+    collectAnswers();
+    app.planUndo=currentPlanSnapshot();
+    if(app.mode==='create'){
+      var text=SP.plan.create({fields:createFields(),quick:app.quick,answers:app.answers,images:app.images,links:app.links});
+      el.planText.value=text;
+    }else{
+      var p=SP.plan.fix({fields:fixFields(),images:app.images,links:app.links});
+      el.planChange.value=p.change;el.planKeep.value=p.keep;el.planCheck.value=p.check;
+    }
+    el.btnPlanUndo.hidden=true;app.plan=currentPlanSnapshot();el.cardPlan.hidden=false;el.cardResult.hidden=true;scrollTo(el.cardPlan);scheduleSave();
+  }
+
+  function armPlanUndo() {
+    if(app.planUndo && !el.btnPlanUndo.hidden) return;
+    app.planUndo=app.plan || currentPlanSnapshot();
+    el.btnPlanUndo.hidden=false;
+  }
+
+  function undoPlan() {
+    if(!app.planUndo)return;
+    var p=app.planUndo;
+    if(p.mode==='create'){el.planText.value=p.text||'';}else{el.planChange.value=p.change||'';el.planKeep.value=p.keep||'';el.planCheck.value=p.check||'';}
+    app.plan=currentPlanSnapshot();app.planUndo=null;el.btnPlanUndo.hidden=true;scheduleSave();toast('이전 플랜으로 되돌렸습니다.');
+  }
+
+  function generatePrompt() {
+    if(el.cardPlan.hidden){buildPlan();if(el.cardPlan.hidden)return;}
+    app.lastRequest=combinedText();
+    var text;
+    if(app.mode==='create') text=SP.prompt.buildCreate(el.planText.value,app.length,app.quick);
+    else text=SP.prompt.buildFix({change:el.planChange.value,keep:el.planKeep.value,check:el.planCheck.value},app.length,fixFields().target);
+    el.resultText.value=text;SP.result.renderLength(el.lenRow,app.length);el.cardResult.hidden=false;scrollTo(el.cardResult);scheduleSave();
+  }
+
+  function rebuildLength() { if(el.cardResult.hidden)return; generatePrompt(); }
+
+  function clearAll() {
+    ['qWhat','qHow','qMust','fixTarget','fixChange','fixKeep','planText','planChange','planKeep','planCheck','resultText'].forEach(function(id){if(el[id])el[id].value='';});
+    app.quick={mobile:false,persist:false,preview:false,multiPhoto:false,order:false,publicLink:false};app.images=[];app.links=[];app.questions=[];app.answers=[];app.plan=null;app.planUndo=null;app.detailOpen=false;
+    renderQuick();renderImages();renderLinks();el.detailPanel.hidden=true;el.moreQuestions.hidden=true;el.cardPlan.hidden=true;el.cardResult.hidden=true;store.clearDraft();
+    (app.mode==='create'?el.qWhat:el.fixTarget).focus();
+  }
+
+  function restoreDraft() {
+    var d=store.getDraft(); if(!d)return;
+    app.mode=d.mode||'create';app.length=d.length||app.length;app.quick=Object.assign(app.quick,d.quick||{});app.images=d.images||[];app.links=d.links||[];app.answers=d.answers||[];app.detailOpen=!!d.detailOpen;
+    if(d.create){el.qWhat.value=d.create.what||'';el.qHow.value=d.create.how||'';el.qMust.value=d.create.must||'';}
+    if(d.fix){el.fixTarget.value=d.fix.target||'';el.fixChange.value=d.fix.change||'';el.fixKeep.value=d.fix.keep||'';}
+    if(d.planCreate)el.planText.value=d.planCreate;
+    if(d.planFix){el.planChange.value=d.planFix.change||'';el.planKeep.value=d.planFix.keep||'';el.planCheck.value=d.planFix.check||'';}
+    if(d.result)el.resultText.value=d.result;
+    el.cardPlan.hidden=!d.planOpen;el.cardResult.hidden=!d.resultOpen;
+    if(app.mode==='create'&&app.detailOpen) askMore();
+  }
+
+  function bind() {
+    el.modeRow.addEventListener('click',function(e){var b=e.target.closest('.mode-btn');if(!b)return;app.mode=b.getAttribute('data-mode');app.detailOpen=false;el.cardPlan.hidden=true;el.cardResult.hidden=true;renderMode();});
+    getAllTextInputs().forEach(function(n){n.addEventListener('input',scheduleSave);});
+    el.btnTidy.addEventListener('click',tidy);el.btnUndo.addEventListener('click',restoreUndo);el.btnExpand.addEventListener('click',askMore);
+    el.quickGrid.addEventListener('click',function(e){var b=e.target.closest('.quick-card');if(!b)return;var k=b.getAttribute('data-quick');app.quick[k]=!app.quick[k];renderQuick();scheduleSave();});
+    el.btnSkipQuestions.addEventListener('click',function(){app.answers=[];el.moreQuestions.hidden=true;scheduleSave();toast('추가 질문은 건너뜁니다.');});
+    el.btnPickImage.addEventListener('click',function(){el.fileInput.click();});
+    el.fileInput.addEventListener('change',function(){SP.imageAttach.readFiles(el.fileInput.files,function(list){app.images=app.images.concat(list);renderImages();el.fileInput.value='';scheduleSave();});});
+    el.btnToggleLink.addEventListener('click',function(){el.linkBox.hidden=!el.linkBox.hidden;if(!el.linkBox.hidden)el.linkInput.focus();});
+    el.btnAddLink.addEventListener('click',addLink);el.linkInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();addLink();}});
+    el.btnPlan.addEventListener('click',buildPlan);el.btnClear.addEventListener('click',clearAll);el.btnPrompt.addEventListener('click',generatePrompt);el.btnPlanUndo.addEventListener('click',undoPlan);
+    [el.planText,el.planChange,el.planKeep,el.planCheck].forEach(function(n){n.addEventListener('focus',armPlanUndo,{once:false});n.addEventListener('input',function(){app.plan=currentPlanSnapshot();scheduleSave();});});
+    el.lenRow.addEventListener('click',function(e){var b=e.target.closest('.len-btn');if(!b)return;app.length=b.getAttribute('data-len');store.set('length',app.length);SP.result.renderLength(el.lenRow,app.length);rebuildLength();});
+    el.resultText.addEventListener('input',scheduleSave);
+    el.btnCopy.addEventListener('click',function(){SP.result.copy(el.resultText.value,function(ok){toast(ok?'프롬프트를 복사했습니다.':'복사에 실패했습니다. 직접 선택해 복사해주세요.');});});
+    el.btnCopyRefine.addEventListener('click',function(){SP.result.copy(SP.result.withRefine(el.resultText.value),function(ok){toast(ok?'정밀화 요청까지 함께 복사했습니다. ChatGPT나 Claude에 붙여넣어 보세요.':'복사에 실패했습니다.');});});
+    el.btnSaveTxt.addEventListener('click',function(){SP.result.saveTxt({provider:'basic',request:app.lastRequest||combinedText(),prompt:el.resultText.value},function(ok,name){toast(ok?(name+' 로 저장했습니다.'):'저장에 실패했습니다.');});});
+    el.btnRemake.addEventListener('click',function(){el.cardResult.hidden=true;scrollTo(el.cardPlan);});
+  }
+
+  function getAllTextInputs(){return [el.qWhat,el.qHow,el.qMust,el.fixTarget,el.fixChange,el.fixKeep,el.linkInput];}
+
+  function init() {
+    ['modeRow','createFields','fixFields','qWhat','qHow','qMust','fixTarget','fixChange','fixKeep','btnTidy','btnExpand','btnUndo','detailPanel','quickGrid','moreQuestions','qList','btnSkipQuestions','btnPickImage','fileInput','thumbGrid','attachCount','btnToggleLink','linkBox','linkInput','btnAddLink','linkList','btnPlan','btnClear','cardPlan','createPlanBox','fixPlanBox','planText','planChange','planKeep','planCheck','btnPlanUndo','btnPrompt','cardResult','lenRow','resultText','btnCopy','btnCopyRefine','btnSaveTxt','btnRemake','toast'].forEach(function(id){el[id]=$(id);});
+    restoreDraft();renderMode();renderQuick();renderImages();renderLinks();SP.result.renderLength(el.lenRow,app.length);bind();
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+  global.SP.app=app;
+})(window);
