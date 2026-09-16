@@ -211,4 +211,27 @@ lightboxStage?.addEventListener('touchend', event => {
   showLightboxPhoto(lightboxIndex + (distance < 0 ? 1 : -1));
 }, { passive: true });
 
+// Make common image-saving actions harder without affecting normal viewing or gallery controls.
+(function protectSiteImages() {
+  document.querySelectorAll('img').forEach(img => {
+    img.draggable = false;
+    img.setAttribute('draggable', 'false');
+    img.style.webkitUserDrag = 'none';
+    img.style.webkitTouchCallout = 'none';
+    img.style.userSelect = 'none';
+  });
+
+  document.addEventListener('contextmenu', event => {
+    if (event.target instanceof Element && event.target.closest('img')) {
+      event.preventDefault();
+    }
+  });
+
+  document.addEventListener('dragstart', event => {
+    if (event.target instanceof Element && event.target.closest('img')) {
+      event.preventDefault();
+    }
+  });
+})();
+
 document.querySelector('#year').textContent = new Date().getFullYear();
